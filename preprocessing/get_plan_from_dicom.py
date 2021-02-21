@@ -2,6 +2,7 @@ import os
 import numpy as np
 from os import listdir
 from scipy.io import loadmat
+from scipy.ndimage import zoom
 from sklearn.model_selection import train_test_split
 import h5py
 import pydicom as dicom
@@ -14,6 +15,7 @@ from collections import defaultdict
 from dicom_contour.dose import ArrayVolume, build_dose_volume
 from fuzzywuzzy import fuzz, process
 import random
+import math
 
 
 class IndexTracker(object):
@@ -138,6 +140,7 @@ class Plan(object):
                 if (s == 'Breasts'):
                     self.structures['Breasts'] = {}
                     self.structures['Breasts']['mask'] = np.zeros(np.shape(self.img_volume))
+                    self.structures['Breasts']['contour'] = np.zeros(np.shape(self.img_volume))
                 else:
                     print("cannot find the organ matchs", s)
                     return
@@ -211,9 +214,30 @@ class Plan(object):
 
     def resample(self, x_dim, y_dim, z_dim):
         pass
+    
+    def structure_range(self, structure):
+        if(structure not in self.plan.structures.keys()):
+            print('The structure is not in list!')
+            return
+        mask =  self.plan.structures[structure]['mask']>0
+        (z,x,y) = np.where(mask)
+        return min(z), max(z), min(x), max(x), min(y), max(y)
 
-    def img_cut(self, x_dim, y_dim, z_dim):
-        pass
+    def img_cut(self, x_dim, y_dim, z_dim, origin):
+        # origin = [z, x, y]
+        x_dim = math.floor(x_dim/2)*2; y_dim = math.floor(y_dim/2)*2; z_dim = math.floor(z_dim/2)*2
+        self.plan.img_volume = self.plan.img_volume[int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
+            int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
+    
+        self.plan.dose_volume = self.plan.dose_volume[int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
+            int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
+    
+        for s in list(plan.structures.keys()):
+            self.plan.structures[s]['mask'] = self.plan.structures[s]['mask'][int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
+                int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
+            self.plan.structures[s]['contour'] = self.plan.structures[s]['contour'][int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
+                int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
+        return self.plan
 
 ### Below are the test functions for used in Plan class
 
@@ -285,13 +309,49 @@ def plot_DVH(plan, structure_list):
     plt.show()
     return DVH_all, Dmean, Dmax, D95, D5
         
-    
 
-#def resample(plan, x_dim, y_dim, z_dim):
-#        plan_new = plan.copy()
-#        if (plan_new.img_volume.any() == None):
-#            return
-#        plan_new.Col_Spacing = 
-#        plan_new.Row_Spacing = 
-#        plan_new.slice_thickness = 
+def structure_range(plan, structure):
+    if(structure not in plan.structures.keys()):
+        print('The structure is not in list!')
+        return
+    mask =  plan.structures[structure]['mask']>0
+    (z,x,y) = np.where(mask)
+    return min(z), max(z), min(x), max(x), min(y), max(y)
+
+
+def img_cut(plan, x_dim, y_dim, z_dim, origin):
+    # origin = [z, x, y]
+    x_dim = math.floor(x_dim/2)*2; y_dim = math.floor(y_dim/2)*2; z_dim = math.floor(z_dim/2)*2
+    plan.img_volume = plan.img_volume[int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
+        int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
+    
+    plan.dose_volume = plan.dose_volume[int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
+        int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
+    
+    for s in list(plan.structures.keys()):
+        plan.structures[s]['mask'] = plan.structures[s]['mask'][int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
+            int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
+        
+        plan.structures[s]['contour'] = plan.structures[s]['contour'][int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
+            int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
+    
+    return plan
+    
+    
+def resample(plan, x_dim=128, y_dim=128, z_dim=64):
+    x_size = np.shape(plan.img_volume)[1]
+    y_size = np.shape(plan.img_volume)[2]
+    z_size = np.shape(plan.img_volume)[0]
+    x_ratio = x_dim/x_size; y_ratio = y_dim/y_size; z_ratio = z_dim/z_size
+    plan.Col_Spacing = plan.Col_Spacing * y_ratio
+    plan.Row_Spacing = plan.Row_Spacing * x_ratio
+    plan.slice_thickness = plan.slice_thickness * z_ratio
+    plan.img_volume = zoom(plan.img_volume, (z_ratio, x_ratio, y_ratio))
+    plan.dose_volume = zoom(plan.dose_volume, (z_ratio, x_ratio, y_ratio))
+    for s in list(plan.structures.keys()):
+        plan.structures[s]['mask'] = zoom(plan.structures[s]['mask'], (z_ratio, x_ratio, y_ratio))>0
+        plan.structures[s]['contour'] = zoom(plan.structures[s]['contour'], (z_ratio, x_ratio, y_ratio))>0
+    
+    return plan
+
     
