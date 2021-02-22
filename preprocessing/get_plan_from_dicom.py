@@ -16,6 +16,8 @@ from dicom_contour.dose import ArrayVolume, build_dose_volume
 from fuzzywuzzy import fuzz, process
 import random
 import math
+import time
+from preprocessing.timer_class import Timer
 
 
 class IndexTracker(object):
@@ -73,8 +75,9 @@ class Plan(object):
         # get the dose_volume
         f = dicom.dcmread(path + contour_file)
         RS_name = f.StructureSetLabel
-        print("work on RS structure ",RS_name,'+++++++++++++++++++++++++++')
+        print("work on RS structure ",RS_name)
         structures = defaultdict()
+        
         
         for s in os.listdir(path):
             img = dicom.dcmread(path + '/' + s)
@@ -87,6 +90,9 @@ class Plan(object):
                 self.Row_Spacing = y_spacing
                 self.slice_thickness = slice_thickness
                 break
+        print('start structure extraction')
+        t = Timer()
+        t.start()
         roi_seq_names = [roi_seq.ROIName for roi_seq in list(f.StructureSetROISequence)]
         for i in range(0,len(roi_seq_names)):
             roi_name = roi_seq_names[i]
@@ -96,10 +102,14 @@ class Plan(object):
                 continue
             structures[roi_name] = {}
             img_voxel, contour_outline, mask_voxel = get_data(path, contour_file, i)
-            structures[roi_name]["mask"] = get_mask(path, contour_file, i, filled=True)
+            structures[roi_name]["mask"] = mask_voxel
             structures[roi_name]["contour"] = contour_outline
             structures[roi_name]["index"] = i
             self.img_volume = img_voxel
+        print('finish extract contour')
+        t.stop()
+        print('start extract dose')
+        t.start()
         for i in range(0,len(roi_seq_names)):
             roi_name = roi_seq_names[i] 
             RTV_temp = f.ROIContourSequence[i]
@@ -108,6 +118,8 @@ class Plan(object):
             img_voxel, mask_voxel, dose_voxel = get_dose_on_ct(path, contour_file, i)
             self.dose_volume = dose_voxel
             break
+        print('finish extract dose')
+        t.stop()
         self.structures = structures
         return structures
 
@@ -213,7 +225,20 @@ class Plan(object):
         return DVH_all, Dmean, Dmax, D95, D5
 
     def resample(self, x_dim, y_dim, z_dim):
-        pass
+        x_size = np.shape(self.img_volume)[1]
+        y_size = np.shape(self.img_volume)[2]
+        z_size = np.shape(self.img_volume)[0]
+        x_ratio = x_dim/x_size; y_ratio = y_dim/y_size; z_ratio = z_dim/z_size
+        self.Col_Spacing = self.Col_Spacing * y_ratio
+        self.Row_Spacing = self.Row_Spacing * x_ratio
+        self.slice_thickness = self.slice_thickness * z_ratio
+        self.img_volume = zoom(self.img_volume, (z_ratio, x_ratio, y_ratio))
+        self.dose_volume = zoom(self.dose_volume, (z_ratio, x_ratio, y_ratio))
+        for s in list(self.structures.keys()):
+            self.structures[s]['mask'] = zoom(self.structures[s]['mask'], (z_ratio, x_ratio, y_ratio))>0
+            self.structures[s]['contour'] = zoom(self.structures[s]['contour'], (z_ratio, x_ratio, y_ratio))>0
+    
+        return 
     
     def structure_range(self, structure):
         if(structure not in self.plan.structures.keys()):
