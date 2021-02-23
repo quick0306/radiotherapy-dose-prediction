@@ -23,6 +23,8 @@ from preprocessing.timer_class import Timer
 
 
 standard_name = [ 'BODY', 'PTV_Ribs', 'PTV_VExP', 'PTV_SpCord', 'PTV_LN', 'PTV_Spleen', 'PTV_Liver', 'Lungs', 'Heart', 'Esophagus', 'GI_Upper', 'Breasts']
+section_size = (27, 37.5, 75)
+matrix_size = (16, 64, 128)
 
 def get_plans(dicom_path, section = 'Lungs', section_size = (27, 37.5, 75), matrix_size = (16, 64, 128), plan_save_path = 'Data/plans', dataset_save_path = 'Data/npy_dataset', save_npy = True, batch_size = 1):
     """ Get the dataset from the folder of dicom files, for each patient, we will 
@@ -41,7 +43,7 @@ def get_plans(dicom_path, section = 'Lungs', section_size = (27, 37.5, 75), matr
         if os.path.isdir(data_folder+folder):
             print('work on patient ', folder)
             subfolder = data_folder+folder +'/'
-            del plan
+            
             plan = Plan()
             plan.get_plan_mask(subfolder)
             plan.rename(standard_name)
@@ -59,17 +61,19 @@ def get_plans(dicom_path, section = 'Lungs', section_size = (27, 37.5, 75), matr
             # save the processed plan to pickle file to plan save_path
             if not os.path.exists(plan_save_path):
                 os.makedirs(plan_save_path)
-            file_name = plan_save_path + '/' + folder + '.pickle'
-            with open(file_name, "wb") as file_:
-                pickle.dump(plan, file_, -1)
+           # file_name = plan_save_path + '/' + folder + '.pickle'
+           # with open(file_name, "wb") as file_:
+           #     pickle.dump(plan, file_, -1)
 
             # create a npy matrix for structures, return [z, x, y, channel]
             structure_masks = get_masks(plan, standard_name)
-        
+            structure_masks = np.expand_dims(structure_masks, axis = 0)
             # get the dose matrix (1, z, x, y)
             dose_img = np.array(plan.dose_volume).astype('float32')
+            dose_img = np.expand_dims(dose_img, axis = 3)
+            dose_img = np.expand_dims(dose_img, axis = 0)
             print('scan shape and dose shape=',structure_masks.shape, dose_img.shape)
-
+            del plan
             # conbine the patients data
             if scans == []:
                 scans = structure_masks
@@ -102,10 +106,11 @@ def get_masks(plan, standard_name):
     masks = []
     for s in standard_name:
         mask = plan.structures[s]['mask']
+        mask = np.expand_dims(mask,axis=3) # extend the mask dimention to 4
         if masks == []:
             masks = mask
         else:
-            masks =  np.concatenate(masks, mask, axis = 3)
+            masks =  np.concatenate((masks, mask), axis = 3)
     print('one structure Mask Data Shape: ' + str(masks.shape))
     return masks
 
@@ -113,6 +118,5 @@ if __name__ == '__main__':
     plan_save_path = 'Data/plans'
     dataset_save_path = 'Data/npy_dataset'
     
-    get_plans(dicom_path, section = 'Lungs', section_size = (27, 37.5, 75), matrix_size = (16, 64, 128), plan_save_path = plan_save_path, \ 
-        dataset_save_path = dataset_path, save_npy = True, batch_size = 1)
+    get_plans(dicom_path, section = 'Lungs', section_size = section_size, matrix_size = matrix_size, plan_save_path = plan_save_path, dataset_save_path = dataset_path, save_npy = True, batch_size = 1)
     

@@ -50,6 +50,7 @@ class IndexTracker(object):
 
 
 standard_name = ['PTV_Ribs', 'PTV_VExP', 'PTV_SpCord', 'PTV_LN', 'PTV_Spleen', 'PTV_Liver', 'BODY', 'Lungs', 'Heart', 'Esophagus', 'GI_Upper', 'Rectum', 'Breasts']
+PTV_VExP_Bone = ['PTV_Bone_Total', '.PTV2_Bone', 'PTV2_Bone', 'PTV_Bone']
 
 class Plan(object):
     def __init__(self, Origin = None,X_grid= None, Y_grid= None, Z_grid = None,\
@@ -127,11 +128,11 @@ class Plan(object):
         dict_name = {}
         dict_origin = {}
         standard_name_lower = []
-        origin_names = list(self.structures.keys())
-        origin_names_lower = []
-        for s in origin_names:
-            origin_names_lower.append(s.lower())
-            dict_origin[s.lower()] = s
+        
+        for structure in list(self.structures.keys()):
+            
+            if(structure in PTV_VExP_Bone):
+                self.structures['PTV_VExP'] = self.structures.pop(structure) 
 
         for s in standard_name:
             standard_name_lower.append(s.lower())
@@ -139,10 +140,13 @@ class Plan(object):
 
         if (self.Col_Spacing == None):
             raise ValueError
-        for structure in list(self.structures.keys()):
-            if(structure == 'PTV_Bone_Total' or structure =='.PTV2_Bone' or structure == 'PTV2_Bone' or structure == 'PTV_Bone'):
-                self.structures['PTV_VExP'] = self.structures.pop(structure)  
-        
+         
+        origin_names = list(self.structures.keys())
+        origin_names_lower = []
+        for s in origin_names:
+            origin_names_lower.append(s.lower())
+            dict_origin[s.lower()] = s
+
         for s in standard_name:
             cand = process.extractOne(s.lower(), origin_names_lower, scorer=fuzz.ratio)
             if(cand[1]>=80):
@@ -154,7 +158,7 @@ class Plan(object):
                     self.structures['Breasts']['mask'] = np.zeros(np.shape(self.img_volume))
                     self.structures['Breasts']['contour'] = np.zeros(np.shape(self.img_volume))
                 else:
-                    print("cannot find the organ matchs", s)
+                    raise ValueError("cannot find the organ matchs", s)
                     return
         return
 
@@ -162,15 +166,15 @@ class Plan(object):
         if (self.img_volume.any() == None):
             return
         fig, (ax1, ax2, ax3, ax4)= plt.subplots(4, 1)
-        max_img = np.max(plan.img_volume.flatten())
-        max_dose = np.max(plan.dose_volume.flatten())
-        tracker1 = IndexTracker(ax1, plan.img_volume, fig,0,max_img)
+        max_img = np.max(self.img_volume.flatten())
+        max_dose = np.max(self.dose_volume.flatten())
+        tracker1 = IndexTracker(ax1, self.img_volume, fig,0,max_img)
         fig.canvas.mpl_connect('scroll_event', tracker1.onscroll)
-        tracker2 = IndexTracker(ax2, plan.dose_volume, fig,0,max_dose)
+        tracker2 = IndexTracker(ax2, self.dose_volume, fig,0,max_dose)
         fig.canvas.mpl_connect('scroll_event', tracker2.onscroll)
-        tracker3 = IndexTracker(ax3, plan.structures[organ]['mask'], fig,0,1)
+        tracker3 = IndexTracker(ax3, self.structures[organ]['mask'], fig,0,1)
         fig.canvas.mpl_connect('scroll_event', tracker3.onscroll)
-        tracker4 = IndexTracker(ax4, plan.structures[organ]['contour'], fig,0,1)
+        tracker4 = IndexTracker(ax4, self.structures[organ]['contour'], fig,0,1)
         fig.canvas.mpl_connect('scroll_event', tracker4.onscroll)
         plt.show()
 
@@ -241,28 +245,28 @@ class Plan(object):
         return 
     
     def structure_range(self, structure):
-        if(structure not in self.plan.structures.keys()):
+        if(structure not in self.structures.keys()):
             print('The structure is not in list!')
             return
-        mask =  self.plan.structures[structure]['mask']>0
+        mask =  self.structures[structure]['mask']>0
         (z,x,y) = np.where(mask)
         return min(z), max(z), min(x), max(x), min(y), max(y)
 
     def img_cut(self, x_dim, y_dim, z_dim, origin):
         # origin = [z, x, y]
         x_dim = math.floor(x_dim/2)*2; y_dim = math.floor(y_dim/2)*2; z_dim = math.floor(z_dim/2)*2
-        self.plan.img_volume = self.plan.img_volume[int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
+        self.img_volume = self.img_volume[int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
             int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
     
-        self.plan.dose_volume = self.plan.dose_volume[int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
+        self.dose_volume = self.dose_volume[int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
             int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
     
-        for s in list(plan.structures.keys()):
-            self.plan.structures[s]['mask'] = self.plan.structures[s]['mask'][int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
+        for s in list(self.structures.keys()):
+            self.structures[s]['mask'] = self.structures[s]['mask'][int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
                 int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
-            self.plan.structures[s]['contour'] = self.plan.structures[s]['contour'][int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
+            self.structures[s]['contour'] = self.structures[s]['contour'][int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
                 int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
-        return self.plan
+        return
 
 ### Below are the test functions for used in Plan class
 
