@@ -18,7 +18,7 @@ def save_model(model, path='Data/Model/', model_name = 'model', weights_name = '
     model.save(path+model_name+'.h5',overwrite= True,include_optimizer = True)
     return
 
-def get_model(model_path, weights_path):
+def get_pred_model(model_path, weights_path):
     if not os.path.exists(model_path):
         print('Model file not exists!')
         return None

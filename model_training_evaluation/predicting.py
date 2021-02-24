@@ -6,38 +6,120 @@ from tensorflow.keras.models import model_from_json, load_model
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from scipy.io import loadmat
+from preprocessing.get_plan_from_dicom import Plan
+from config import *
+import pandas as pd
+from IPython.display import display
 
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-def predict(save_result = False, path):
-    
-    ## Load prediction model
-    model =  load_model(path + '/Model_UnetDense/model.h5')
-    model.load_weights(path + '/Model_UnetDense/best_weights.h5')
 
-    # 
-    patient = 'Colon'
-    test_path = 'Data_v4/test/'
-    save_path = test_path+patient+'_predict_step1.npy'
-    compare_dose(model, test_path, patient,True, save_path)
-    # define the organ that we want to compare dose on organ_index
-    organ_index = [1,2,3,4,5,6,7,8,9,10]
-    organ_name = ['Body', 'PTV_Ribs','PTV_VExP','PTV_SpinalCord','PTV_LN','PTV_Spleen','PTV_Liver','Lungs','Heart','Esophagus','GI_Upper','Breasts','Avoid1']
-    compare_DVH(model, test_path, patient, organ_index, organ_name)
-    
-    # Predict the dose after step2
-    if(step2_finish == True):
-        save_path_step2=test_path+patient+'step2.npy'
-        model =  load_model('Data_v4/Model_UnetDense/step2/step2_model.h5')
-        model.load_weights('Data_v4/Model_UnetDense/step2/best_weights.h5')
-        step2_feature_file = test_path+patient+'_feature_step2.npy'
-        
-        compare_dose2(model, test_path, step2_feature_file, patient, True, save_path_step2)
-        organ_index = [1,2,3,4,5,6,7,8,9,10]
-        organ_name = ['Body', 'PTV_Ribs','PTV_VExP','PTV_SpinalCord','PTV_LN','PTV_Spleen','PTV_Liver','Lungs','Heart','Esophagus','GI_Upper','Breasts','Avoid1']
-        compare_DVH2(model, test_path, step2_feature_file,patient, organ_index, organ_name,normalize = True)
+def predict_evaluation(model_path, test_patient_path):
+    ''' predict the dose and evaluation for individual patient
+    '''
+    if test_patient_path[-1] == '/':
+        test_patient_path = test_patient_path + '/'
+    subfolder = test_patient_path
+    test_npy = listdir(subfolder)
+    file_name = test_npy
+    plan = Plan()
+    plan.structures = defaultdict()
+    plan_hat = Plan() # plan_hat is the predicted dose of plan
+    plan_hat.structures = defaultdict()
+    # start to assign the metrix to plan attributes
+    batch_XY = np.load(subfolder+test_npy[0])
+    s_n = len(standard_name)  # s_n is the number of structures
+    X =  batch_XY[:,:,:,:,0:s_n]
+    Y =  batch_XY[:,:,:,:,s_n:s_n+1]
+    Y_hat = model.predict(X)
+    dose_true = np.squeeze(Y) # get the dose matrix of [Z,X,Y]
+    plan.dose_volume = dose_true
+    for i in range(0,s_n):
+        mask = np.squeeze(X[:,:,:,:,i])
+        s = standard_name[i]
+        plan.structures[s]['mask'] = mask
+        plan_hat.structures[s]['mask'] = mask    
+    dose_predict = np.zeros(dose_true.shape)
+    dose_diff = np.zeros(dose_true.shape)
+    Y_hat = model.predict(X)
+    dose_hat = np.squeeze(Y_hat)
+    plan_hat.dose_volume = dose_hat
+    batch_XY_hat = np.concatenate(X, Y_hat, axis = -1)
+    np.save(test_patient_path+'hat_'+ test_npy, batch_XY_hat)
+    metrics = evaluate(plan, plan_hat)
 
+def evaluate(plan, plan_hat, structure_list = standard_name):
+    ''' display the dose difference and DVH difference
+        return several metrics, D95, D2, Dmax, Dmean
+    '''
+    # get dose diffrerence
+    dose = plan.dose_volume
+    dose_hat = plan_hat.dose_volume
+    dose_diff = np.add(np.multiply(-1,dose), dose_hat)
+    # get DVH metrics
+    dose_bin, DVH_all, Dmean, Dmax, D95, D5, D98, D2 = plan.plot_DVH(structure_list)
+    dose_bin_hat, DVH_all_hat, Dmean_hat, Dmax_hat, D95_hat, D5_hat, D98_hat, D2_hat = plan_hat.plot_DVH(structure_list)
+
+
+    ## start display the dose difference    
+    fig, (ax1, ax2, ax3)= plt.subplots(3, 1)
+    max_dose = np.max(self.dose_volume.flatten())
+    tracker1 = IndexTracker(ax1, dose, fig,0,max_dose)
+    fig.canvas.mpl_connect('scroll_event', tracker1.onscroll)
+    tracker2 = IndexTracker(ax2, dose_hat, fig,0,max_dose)
+    fig.canvas.mpl_connect('scroll_event', tracker2.onscroll)
+    tracker3 = IndexTracker(ax3, dose_diff, fig,dose_diff.min(),dose_diff.max())
+    fig.canvas.mpl_connect('scroll_event', tracker3.onscroll)
+    plt.show()
+
+    ## show DVHs on one image
+    fig = plt.figure()
+    structure_legend = []
+    for s in structure_list:
+        r = random.uniform(0, 1); g = random.uniform(0, 1); b = random.uniform(0, 1)
+        plt.plot(dose_bin,DVH_all[s]*100, color = (r,g,b), linewidth=1)
+        plt.plot(dose_bin_hat,DVH_all_hat[s]*100, color = (r,g,b), linewidth=1, linestyle='dashed')
+        structure_legend.append(s)
+        structure_legend.append(s)
+    plt.ylabel('volume %')
+    plt.legend(structure_legend,bbox_to_anchor=(1.1, 1.05),prop={'size': 6}) 
+    plt.show()
+
+    # get metric difference into dataframe and display
+    column_names = ["Organ", "Dmean", "Dmax", "D95", "D98", "D5", "D2"]
+    df = pd.DataFrame(columns = column_names)
+    for s in structure_list:
+        Dmean, Dmax, D95, D5, D98, D2
+        df = df.append({'Organ' : s, 'Dmean' : (Dmean_hat-Dmean)/Dmean, 'Dmax' : (Dmax_hat-Dmax)/Dmax}, \
+                        'D95' : (D95_hat-D95)/D95, 'D98' : (D98_hat-D98)/D98, 'D5' : (D5_hat-D5)/D5, \
+                        'D2' : (D2_hat-D2)/D2, ignore_index = True) 
+    display(df)
+    return df
+
+
+
+def predict_batch(model_path, test_path):
+    ''' predict the dose for a npy matrix, when generate the data, we main need to maintain 
+        a patient to batch_i list to excel
+
+    '''
+    # setup the test_path
+    if test_path[-1] == '/':
+        test_path = test_path + '/'
+    data_folder = test_path
+    data_dirs = listdir(data_folder)
+    # start to go-over all patients in the test_path subfolders
+    metrics_all = {}
+    for folder in data_dirs:
+        if os.path.isdir(data_folder+folder):
+            print('work on test patient ', folder)
+           
+            dose_hat = np.squeeze(Y_hat)
+            plan_hat.dose_volume = dose_hat
+
+
+    
 
 
 

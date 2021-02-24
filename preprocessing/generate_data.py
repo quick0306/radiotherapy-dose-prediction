@@ -20,11 +20,8 @@ import time
 import pickle
 from preprocessing.get_plan_from_dicom import Plan
 from preprocessing.timer_class import Timer
+from config import *
 
-
-standard_name = [ 'BODY', 'PTV_Ribs', 'PTV_VExP', 'PTV_SpCord', 'PTV_LN', 'PTV_Spleen', 'PTV_Liver', 'Lungs', 'Heart', 'Esophagus', 'GI_Upper', 'Breasts']
-section_size = (27, 37.5, 75)
-matrix_size = (16, 64, 128)
 
 def get_plans(dicom_path, section = 'Lungs', section_size = (27, 37.5, 75), matrix_size = (16, 64, 128), plan_save_path = 'Data/plans', dataset_save_path = 'Data/npy_dataset', save_npy = True, batch_size = 1):
     """ Get the dataset from the folder of dicom files, for each patient, we will 

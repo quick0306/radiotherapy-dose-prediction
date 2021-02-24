@@ -6,21 +6,14 @@ import tensorflow as tf
 import random
 #from get_dataset import read_npy_dataset, split_npy_dataset
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
-from model_training_evaluation.get_models import unet_dense, get_pred_model, get_Discriminator, get_GAN, get_Generator, save_model
+from model_training_evaluation.get_models import unet_dense, get_Discriminator, get_GAN, get_Generator, save_model
+from util import mse, dice_coeff 
+from config import *
+
 
 # define training hyperparameters
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
-epochs = 500
-batch_size = 32
-test_size = 0.1
-
-def dice_coefficient(y_true, y_pred):
-    smoothing_factor = 1
-    flat_y_true = y_true.flatten()
-    flat_y_pred = y_pred.flatten()
-    return (2. * np.sum(flat_y_true * flat_y_pred) + smoothing_factor) / (np.sum(flat_y_true) + np.sum(flat_y_pred) + smoothing_factor)
 
 def data_gen(splitted_npy_dataset_path, batch_size):
     c = 0
@@ -28,14 +21,15 @@ def data_gen(splitted_npy_dataset_path, batch_size):
     n = os.listdir(splitted_npy_dataset_path) #List of training images
     random.shuffle(n)
     while True:
-        X_batch = np.zeros((batch_size, 128, 256, 13)).astype('float')
-        Y_batch = np.zeros((batch_size, 128, 256, 1)).astype('float')
+        X_batch = np.zeros((batch_size, imput_size[0], imput_size[1], imput_size[2], imput_size[3])).astype('float')
+        Y_batch = np.zeros((batch_size, imput_size[0], imput_size[1], imput_size[2], 1)).astype('float')
         for i in range(c,c+batch_size):
             
             batch_XY = np.load(splitted_npy_dataset_path+'/'+n[i])
             #print('batch_XY size', batch_XY.shape)
-            X_batch[i-c] =  batch_XY[:,:,:,0:13]
-            Y_batch[i-c] =  batch_XY[:,:,:,13:14]    
+            dimention = len(standard_name)
+            X_batch[i-c] =  batch_XY[:,:,:,:,0:dimention]
+            Y_batch[i-c] =  batch_XY[:,:,:,:,dimention:dimention+1]    
         c = c + batch_size
         if(c+batch_size>=len(os.listdir(splitted_npy_dataset_path))):
             c=0
@@ -66,7 +60,7 @@ def train_nn_model(model, training_npy_path, validation_npy_path, epochs, save_p
   #  print('Test loss:', scores[0], '\nTest accuracy:', scores[1], '\nDice Coefficient Accuracy:', dice_score)
     return model
 
-def main(train_gan_model = False, input_size = (16, 64, 128, 12), parent_path='Data', training_npy_path = 'Data/npy_dataset/training/' , training_npy_path = 'Data/npy_dataset/validation/'):
+def run_training(train_gan_model = False, input_size = (16, 64, 128, 12), parent_path='Data', training_npy_path = 'Data/npy_dataset/training/' , validation_npy_path = 'Data/npy_dataset/validation/'):
     
     if train_gan_model:
         Generator = unet_dense(input_size)
@@ -95,7 +89,11 @@ def main(train_gan_model = False, input_size = (16, 64, 128, 12), parent_path='D
         pred_model = unet_dense(input_size = input_size)
         save_model(pred_model, path = model_save_path, model_name = 'unet_model', weights_name = 'weights')
         print('Non-Trained model saved to',  model_save_path)
-        model = train_nn_model(pred_model, training_npy_path = training_npy_path, validation_npy_path = training_npy_path, epochs = epochs, save_path = save_path_checkpoints)
+        model = train_nn_model(pred_model, training_npy_path = training_npy_path, validation_npy_path = validation_npy_path, epochs = epochs, save_path = save_path_checkpoints)
         save_model(model, path= model_save_path, model_name = 'final_model', weights_name = 'weights')
         print('Trained model saved to', model_save_path)
         return model
+
+
+if __name__ == '__main__':
+    main(train_gan_model = False, input_size = (16, 64, 128, 12), parent_path='Data', training_npy_path = 'Data/npy_dataset/training/' , validation_npy_path = 'Data/npy_dataset/validation/')

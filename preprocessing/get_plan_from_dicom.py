@@ -18,6 +18,7 @@ import random
 import math
 import time
 from preprocessing.timer_class import Timer
+from config import *
 
 
 class IndexTracker(object):
@@ -49,8 +50,6 @@ class IndexTracker(object):
         self.im.axes.figure.canvas.draw()
 
 
-standard_name = ['PTV_Ribs', 'PTV_VExP', 'PTV_SpCord', 'PTV_LN', 'PTV_Spleen', 'PTV_Liver', 'BODY', 'Lungs', 'Heart', 'Esophagus', 'GI_Upper', 'Rectum', 'Breasts']
-PTV_VExP_Bone = ['PTV_Bone_Total', '.PTV2_Bone', 'PTV2_Bone', 'PTV_Bone']
 
 class Plan(object):
     def __init__(self, Origin = None,X_grid= None, Y_grid= None, Z_grid = None,\
@@ -189,7 +188,7 @@ class Plan(object):
         DVH_inv = max_dose*1.0/DVH_bin
         dose_bin = np.zeros(DVH_bin)
         dose_bin = np.arange(0,DVH_bin)*DVH_inv
-        dose_bin1 = np.arange(-1,DVH_bin)*DVH_in
+        dose_bin1 = np.arange(-1,DVH_bin)*DVH_inv
         for s in structure_list:
             plan.structures[s]['mask'] = plan.structures[s]['mask']>0
             # generate the mask for specific organ
@@ -226,7 +225,7 @@ class Plan(object):
         plt.ylabel('volume %')
         plt.legend(structure_list,bbox_to_anchor=(1.1, 1.05),prop={'size': 6}) 
         plt.show()
-        return DVH_all, Dmean, Dmax, D95, D5
+        return dose_bin, DVH_all, Dmean, Dmax, D95, D5, D98, D2
 
     def resample(self, x_dim, y_dim, z_dim):
         x_size = np.shape(self.img_volume)[1]
@@ -336,7 +335,7 @@ def plot_DVH(plan, structure_list):
     plt.ylabel('volume %')
     plt.legend(structure_list,bbox_to_anchor=(1.1, 1.05),prop={'size': 6}) 
     plt.show()
-    return DVH_all, Dmean, Dmax, D95, D5
+    return DVH_all, Dmean, Dmax, D95, D5, D98, D2
         
 
 def structure_range(plan, structure):
