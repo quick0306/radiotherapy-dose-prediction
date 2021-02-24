@@ -10,15 +10,17 @@ from preprocessing.get_plan_from_dicom import Plan
 from config import *
 import pandas as pd
 from IPython.display import display
+from collections import defaultdict
+from util import * 
 
-physical_devices = tf.config.experimental.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(physical_devices[0], True)
+# physical_devices = tf.config.experimental.list_physical_devices('GPU')
+# tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 
-def predict_evaluation(model_path, test_patient_path):
+def predict_evaluation(model, test_patient_path):
     ''' predict the dose and evaluation for individual patient
     '''
-    if test_patient_path[-1] == '/':
+    if test_patient_path[-1] != '/':
         test_patient_path = test_patient_path + '/'
     subfolder = test_patient_path
     test_npy = listdir(subfolder)
@@ -27,27 +29,33 @@ def predict_evaluation(model_path, test_patient_path):
     plan.structures = defaultdict()
     plan_hat = Plan() # plan_hat is the predicted dose of plan
     plan_hat.structures = defaultdict()
+
     # start to assign the metrix to plan attributes
     batch_XY = np.load(subfolder+test_npy[0])
     s_n = len(standard_name)  # s_n is the number of structures
     X =  batch_XY[:,:,:,:,0:s_n]
     Y =  batch_XY[:,:,:,:,s_n:s_n+1]
-    Y_hat = model.predict(X)
+
+    # load model and predict
+    # Y_hat = model.predict(X)
+    Y_hat = np.maximum(np.subtract(Y, 3), 0)  # shift dose 3 Gy
+    dose_hat = np.squeeze(Y_hat)
+    plan_hat.dose_volume = dose_hat
     dose_true = np.squeeze(Y) # get the dose matrix of [Z,X,Y]
     plan.dose_volume = dose_true
     for i in range(0,s_n):
         mask = np.squeeze(X[:,:,:,:,i])
         s = standard_name[i]
+        plan.structures[s] = defaultdict()
         plan.structures[s]['mask'] = mask
+        plan_hat.structures[s] = defaultdict()
         plan_hat.structures[s]['mask'] = mask    
-    dose_predict = np.zeros(dose_true.shape)
-    dose_diff = np.zeros(dose_true.shape)
-    Y_hat = model.predict(X)
-    dose_hat = np.squeeze(Y_hat)
-    plan_hat.dose_volume = dose_hat
-    batch_XY_hat = np.concatenate(X, Y_hat, axis = -1)
-    np.save(test_patient_path+'hat_'+ test_npy, batch_XY_hat)
+    
+    
+    batch_XY_hat = np.concatenate((X, Y_hat), axis = -1)
+    np.save(test_patient_path+'hat_'+ test_npy[0], batch_XY_hat)
     metrics = evaluate(plan, plan_hat)
+    return metrics
 
 def evaluate(plan, plan_hat, structure_list = standard_name):
     ''' display the dose difference and DVH difference
@@ -64,7 +72,7 @@ def evaluate(plan, plan_hat, structure_list = standard_name):
 
     ## start display the dose difference    
     fig, (ax1, ax2, ax3)= plt.subplots(3, 1)
-    max_dose = np.max(self.dose_volume.flatten())
+    max_dose = np.max(dose.flatten())
     tracker1 = IndexTracker(ax1, dose, fig,0,max_dose)
     fig.canvas.mpl_connect('scroll_event', tracker1.onscroll)
     tracker2 = IndexTracker(ax2, dose_hat, fig,0,max_dose)
@@ -91,9 +99,9 @@ def evaluate(plan, plan_hat, structure_list = standard_name):
     df = pd.DataFrame(columns = column_names)
     for s in structure_list:
         Dmean, Dmax, D95, D5, D98, D2
-        df = df.append({'Organ' : s, 'Dmean' : (Dmean_hat-Dmean)/Dmean, 'Dmax' : (Dmax_hat-Dmax)/Dmax}, \
-                        'D95' : (D95_hat-D95)/D95, 'D98' : (D98_hat-D98)/D98, 'D5' : (D5_hat-D5)/D5, \
-                        'D2' : (D2_hat-D2)/D2, ignore_index = True) 
+        df = df.append({'Organ' : s, 'Dmean' : (Dmean_hat[s]-Dmean[s])/Dmean[s], 'Dmax' : (Dmax_hat[s]-Dmax[s])/Dmax[s], \
+                        'D95':(D95_hat[s]-D95[s])/D95[s], 'D98' : (D98_hat[s]-D98[s])/D98[s], 'D5' : (D5_hat[s]-D5[s])/D5[s], \
+                        'D2' : (D2_hat[s]-D2[s])/D2[s]}, ignore_index = True) 
     display(df)
     return df
 
@@ -105,18 +113,42 @@ def predict_batch(model_path, test_path):
 
     '''
     # setup the test_path
-    if test_path[-1] == '/':
+    if test_path[-1] != '/':
         test_path = test_path + '/'
     data_folder = test_path
     data_dirs = listdir(data_folder)
+    
+    # load model once 
+    if model_path[-1] != '/':
+        model_path = model_path + '/'
+   # model =  load_model(model_path + 'model.h5')
+   # model.load_weights(model_path + 'best_weights.h5')
+    model = None
+
     # start to go-over all patients in the test_path subfolders
+
     metrics_all = {}
     for folder in data_dirs:
         if os.path.isdir(data_folder+folder):
             print('work on test patient ', folder)
-           
-            dose_hat = np.squeeze(Y_hat)
-            plan_hat.dose_volume = dose_hat
+            test_patient_path = data_folder+folder
+            metrics = predict_evaluation(model, test_patient_path)
+            metrics_all[folder] = metrics
+    
+    return metrics_all
+            
+
+## test functoin run in jupyter
+def predict_unit_test():
+    ''' test function run in jupyter
+    '''
+
+    test_path = 'Data/npy_dataset/test/'
+    model_path = 'Data/Model_UnetDense/'
+    test_patient_path = 'Data/npy_dataset/test/patient_1'
+    model = None
+   # predict_evaluation(model = None, test_patient_path = test_patient_path)
+    predict_batch(model_path, test_path)
 
 
     

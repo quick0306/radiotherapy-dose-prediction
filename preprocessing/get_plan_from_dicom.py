@@ -19,36 +19,7 @@ import math
 import time
 from preprocessing.timer_class import Timer
 from config import *
-
-
-class IndexTracker(object):
-    def __init__(self, ax, X,fig,bmin,bmax):
-        self.ax = ax
-        ax.set_title('use scroll wheel to navigate images')
-
-        self.X = X
-        self.fig = fig
-        self.slices, row, cols = X.shape
-        self.ind = self.slices//2
-
-        self.im = ax.imshow(self.X[self.ind,:,:],cmap='jet',vmin=bmin, vmax=bmax)
-        fig.colorbar(self.im, ax=self.ax )
-      #  self.im.colorbar()
-        self.update()
-
-    def onscroll(self, event):
-        print("%s %s" % (event.button, event.step))
-        if event.button == 'up':
-            self.ind = (self.ind + 1) % self.slices
-        else:
-            self.ind = (self.ind - 1) % self.slices
-        self.update()
-
-    def update(self):
-        self.im.set_data(self.X[self.ind,:, :])
-        self.ax.set_ylabel('slice %s' % self.ind)
-        self.im.axes.figure.canvas.draw()
-
+from util import *
 
 
 class Plan(object):
@@ -178,7 +149,7 @@ class Plan(object):
         plt.show()
 
     def plot_DVH(self, structure_list):
-        dose_flat = plan.dose_volume.flatten()
+        dose_flat = self.dose_volume.flatten()
         max_dose = np.max(dose_flat)
         # define the metrics that we want to display
         Dmean = {}; Dmax = {}; D95 = {}; D5 = {}; D98 = {}; D2 = {}
@@ -190,9 +161,9 @@ class Plan(object):
         dose_bin = np.arange(0,DVH_bin)*DVH_inv
         dose_bin1 = np.arange(-1,DVH_bin)*DVH_inv
         for s in structure_list:
-            plan.structures[s]['mask'] = plan.structures[s]['mask']>0
+            self.structures[s]['mask'] = self.structures[s]['mask']>0
             # generate the mask for specific organ
-            mask_organ = np.squeeze(plan.structures[s]['mask'])
+            mask_organ = np.squeeze(self.structures[s]['mask'])
             mask_organ = mask_organ.flatten()
             volume = len(mask_organ==True)
             # make as dose_organ
