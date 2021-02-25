@@ -92,7 +92,7 @@ class Plan(object):
         print('finish extract dose')
         t.stop()
         self.structures = structures
-        return structures
+        return
 
     def rename(self, standard_name = standard_name):
         dict_name = {}
@@ -129,7 +129,6 @@ class Plan(object):
                     self.structures['Breasts']['contour'] = np.zeros(np.shape(self.img_volume))
                 else:
                     raise ValueError("cannot find the organ matchs", s)
-                    return
         return
 
     def plot_3d_img(self, organ = 'Lungs'):
@@ -169,6 +168,9 @@ class Plan(object):
             # make as dose_organ
             dose_masked =  np.ma.masked_where(mask_organ==False, dose_flat)
             dose_organ = dose_masked.compressed()
+            if np.asarray(dose_organ).size == 0:
+                print(s, ' not exist')
+                continue
             Dmean[s] = dose_organ.mean()
             Dmax[s] = dose_organ.max()
             # start to calculate the DVH
@@ -190,6 +192,8 @@ class Plan(object):
             print('True max organ dose is: ', dose_organ.max())
         fig = plt.figure()
         for s in structure_list:
+            if s not in DVH_all.keys():
+                continue
             r = random.uniform(0, 1); g = random.uniform(0, 1); b = random.uniform(0, 1)
             plt.plot(dose_bin,DVH_all[s]*100, color = (r,g,b), linewidth=1)
         
@@ -222,20 +226,16 @@ class Plan(object):
         (z,x,y) = np.where(mask)
         return min(z), max(z), min(x), max(x), min(y), max(y)
 
-    def img_cut(self, x_dim, y_dim, z_dim, origin):
+    def img_cut(self, x_dim, y_dim, z_dim):
         # origin = [z, x, y]
-        x_dim = math.floor(x_dim/2)*2; y_dim = math.floor(y_dim/2)*2; z_dim = math.floor(z_dim/2)*2
-        self.img_volume = self.img_volume[int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
-            int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
+       # x_dim = math.floor(x_dim/2)*2; y_dim = math.floor(y_dim/2)*2; z_dim = math.floor(z_dim/2)*2
+        self.img_volume = self.img_volume[z_dim[0]:z_dim[1], x_dim[0]:x_dim[1], y_dim[0]:y_dim[1]]
     
-        self.dose_volume = self.dose_volume[int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
-            int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
+        self.dose_volume = self.dose_volume[z_dim[0]:z_dim[1], x_dim[0]:x_dim[1], y_dim[0]:y_dim[1]]
     
         for s in list(self.structures.keys()):
-            self.structures[s]['mask'] = self.structures[s]['mask'][int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
-                int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
-            self.structures[s]['contour'] = self.structures[s]['contour'][int(origin[0]-z_dim/2):int(origin[0]+z_dim/2), int(origin[1]-x_dim/2):int(origin[1]+x_dim/2),\
-                int(origin[2]-y_dim/2):int(origin[2]+y_dim/2)]
+            self.structures[s]['mask'] = self.structures[s]['mask'][z_dim[0]:z_dim[1], x_dim[0]:x_dim[1], y_dim[0]:y_dim[1]]
+            self.structures[s]['contour'] = self.structures[s]['contour'][z_dim[0]:z_dim[1], x_dim[0]:x_dim[1], y_dim[0]:y_dim[1]]
         return
 
 ### Below are the test functions for used in Plan class
@@ -352,5 +352,18 @@ def resample(plan, x_dim=128, y_dim=128, z_dim=64):
         plan.structures[s]['contour'] = zoom(plan.structures[s]['contour'], (z_ratio, x_ratio, y_ratio))>0
     
     return plan
+
+
+def plan_unit_test():
+    path = './dicom_data/TMI_Kane/'
+    plan = Plan()
+    plan.get_plan_mask(path)
+    plan.rename(standard_name = standard_name)
+    print(plan.structures.keys())
+    plan.plot_3d_img(organ = 'Lungs')
+    return plan
+
+
+
 
     

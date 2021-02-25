@@ -85,6 +85,8 @@ def evaluate(plan, plan_hat, structure_list = standard_name):
     fig = plt.figure()
     structure_legend = []
     for s in structure_list:
+        if s not in DVH_all.keys():
+            continue
         r = random.uniform(0, 1); g = random.uniform(0, 1); b = random.uniform(0, 1)
         plt.plot(dose_bin,DVH_all[s]*100, color = (r,g,b), linewidth=1)
         plt.plot(dose_bin_hat,DVH_all_hat[s]*100, color = (r,g,b), linewidth=1, linestyle='dashed')
@@ -98,6 +100,8 @@ def evaluate(plan, plan_hat, structure_list = standard_name):
     column_names = ["Organ", "Dmean", "Dmax", "D95", "D98", "D5", "D2"]
     df = pd.DataFrame(columns = column_names)
     for s in structure_list:
+        if s not in DVH_all.keys():
+            continue
         Dmean, Dmax, D95, D5, D98, D2
         df = df.append({'Organ' : s, 'Dmean' : (Dmean_hat[s]-Dmean[s])/Dmean[s], 'Dmax' : (Dmax_hat[s]-Dmax[s])/Dmax[s], \
                         'D95':(D95_hat[s]-D95[s])/D95[s], 'D98' : (D98_hat[s]-D98[s])/D98[s], 'D5' : (D5_hat[s]-D5[s])/D5[s], \
@@ -145,7 +149,7 @@ def predict_unit_test():
 
     test_path = 'Data/npy_dataset/test/'
     model_path = 'Data/Model_UnetDense/'
-    test_patient_path = 'Data/npy_dataset/test/patient_1'
+    test_patient_path = 'Data/npy_dataset/test/patient_2'
     model = None
    # predict_evaluation(model = None, test_patient_path = test_patient_path)
     predict_batch(model_path, test_path)

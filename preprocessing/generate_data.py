@@ -21,9 +21,10 @@ import pickle
 from preprocessing.get_plan_from_dicom import Plan
 from preprocessing.timer_class import Timer
 from config import *
+from util import *
 
 
-def get_plans(dicom_path, section = 'Lungs', section_size = (27, 37.5, 75), matrix_size = (16, 64, 128), plan_save_path = 'Data/plans', dataset_save_path = 'Data/npy_dataset', save_npy = True, batch_size = 1):
+def get_plans(dicom_path, section = 'Lungs', section_size = (27, 37.5, 50), matrix_size = (16, 96, 128), plan_save_path = 'Data/plans', dataset_save_path = 'Data/npy_dataset', save_npy = True, batch_size = 1):
     """ Get the dataset from the folder of dicom files, for each patient, we will 
         get the plan class, and resample and re-cut the plan, then same the plan to a folder
         section size and matrix_size --> z, x, y 
@@ -48,9 +49,26 @@ def get_plans(dicom_path, section = 'Lungs', section_size = (27, 37.5, 75), matr
             zmin_body,zmax_body,xmin_body,xmax_body,ymin_body,ymax_body = plan.structure_range('BODY')
             zmin,zmax,xmin,xmax,ymin,ymax = plan.structure_range(section)
             origin = [math.floor((zmin+zmax)/2), math.floor((xmin_body+xmax_body)/2), math.floor((ymin_body+ymax_body)/2)]
-            z_dim = int(section_size[0]*10 / plan.slice_thickness)
-            x_dim = int(section_size[1]*10 / plan.Row_Spacing); y_dim = int(section_size[2]*10 / plan.Col_Spacing)
-            plan.img_cut(x_dim, y_dim, z_dim, origin)
+            z_scope = int(section_size[0]*10 / plan.slice_thickness)
+            x_scope = int(section_size[1]*10 / plan.Row_Spacing)
+            y_scope = int(section_size[2]*10 / plan.Col_Spacing)
+
+            # we need to do some adjustment before image cut to make sure we cut correctly
+            if(x_scope >= np.shape(plan.img_volume)[1]):
+                x_dim = [0,np.shape(plan.img_volume)[1]]
+            else:
+                x_dim = [int(origin[1] - x_scope/2), int(origin[1] + x_scope/2)]
+
+            if(y_scope >= np.shape(plan.img_volume)[2]):
+                y_dim = [0,np.shape(plan.img_volume)[2]]
+            else:
+                y_dim = [int(origin[2] - y_scope/2), int(origin[2] + y_scope/2)]
+            
+            z_dim = [int(origin[0] - z_scope/2), int(origin[0] + z_scope/2)]
+
+            print('x_dim, y_dim, z_dim', x_dim, y_dim, z_dim)
+
+            plan.img_cut(x_dim, y_dim, z_dim)
 
             #resize the matrix after cut the image to appropriate size
             plan.resample(x_dim = matrix_size[1], y_dim = matrix_size[2], z_dim = matrix_size[0])
@@ -111,9 +129,21 @@ def get_masks(plan, standard_name):
     print('one structure Mask Data Shape: ' + str(masks.shape))
     return masks
 
+
+
+def get_plans_unit_test():
+
+    dicom_path = './dicom_data_test/'
+    plan_save_path = './Data/plans_test'
+    dataset_save_path = './Data/npy_dataset_test'
+
+    get_plans(dicom_path, section = 'Lungs', plan_save_path = 'Data/plans_test', dataset_save_path = 'Data/npy_dataset_test', save_npy = True, batch_size = 1)
+    scans, dose_imgs = get_plans(dicom_path, section = 'Lungs', section_size = section_size, matrix_size = matrix_size, plan_save_path = plan_save_path, dataset_save_path = dataset_save_path, save_npy = True, batch_size = 1)
+    return scans, dose_imgs
+
+
+
 if __name__ == '__main__':
     plan_save_path = 'Data/plans'
     dataset_save_path = 'Data/npy_dataset'
-    
-    get_plans(dicom_path, section = 'Lungs', section_size = section_size, matrix_size = matrix_size, plan_save_path = plan_save_path, dataset_save_path = dataset_path, save_npy = True, batch_size = 1)
     
