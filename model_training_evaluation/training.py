@@ -21,8 +21,8 @@ def data_gen(splitted_npy_dataset_path, batch_size):
     n = os.listdir(splitted_npy_dataset_path) #List of training images
     random.shuffle(n)
     while True:
-        X_batch = np.zeros((batch_size, imput_size[0], imput_size[1], imput_size[2], imput_size[3])).astype('float')
-        Y_batch = np.zeros((batch_size, imput_size[0], imput_size[1], imput_size[2], 1)).astype('float')
+        X_batch = np.zeros((batch_size, input_size[0], input_size[1], input_size[2], input_size[3])).astype('float')
+        Y_batch = np.zeros((batch_size, input_size[0], input_size[1], input_size[2], 1)).astype('float')
         for i in range(c,c+batch_size):
             
             batch_XY = np.load(splitted_npy_dataset_path+'/'+n[i])
@@ -51,7 +51,7 @@ def train_nn_model(model, training_npy_path, validation_npy_path, epochs, save_p
     checkpoints = []
     checkpoints.append(EarlyStopping(monitor='val_loss', patience=500))
     checkpoints.append(ModelCheckpoint(best_weights_path, monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=False))
-    model.fit_generator(data_gen(training_npy_path, batch_size), steps_per_epoch=int(len_batch_dirs/batch_size)+1, epochs=epochs, validation_data=data_gen(validation_npy_path, batch_size), 
+    model.fit_generator(data_gen(training_npy_path, batch_size), steps_per_epoch=int(len_batch_dirs/batch_size)+1, epochs=epochs, validation_data=data_gen(validation_npy_path, batch_size = batch_size), 
                           validation_steps=5, callbacks=checkpoints)
     #scores = model.evaluate(X_test, Y_test)        
     #print(Y_predict.shape)
@@ -60,7 +60,7 @@ def train_nn_model(model, training_npy_path, validation_npy_path, epochs, save_p
   #  print('Test loss:', scores[0], '\nTest accuracy:', scores[1], '\nDice Coefficient Accuracy:', dice_score)
     return model
 
-def run_training(train_gan_model = False, input_size = (16, 64, 128, 12), parent_path='Data', training_npy_path = 'Data/npy_dataset/training/' , validation_npy_path = 'Data/npy_dataset/validation/'):
+def run_training(train_gan_model = False, input_size = (16, 96, 128, 12), parent_path='Data', training_npy_path = 'Data/npy_dataset/training/' , validation_npy_path = 'Data/npy_dataset/validation/'):
     
     if train_gan_model:
         Generator = unet_dense(input_size)
@@ -95,5 +95,9 @@ def run_training(train_gan_model = False, input_size = (16, 64, 128, 12), parent
         return model
 
 
+def training_unit_test():
+    run_training(train_gan_model = False, input_size = input_size, parent_path= parent_path, training_npy_path =  training_npy_path , validation_npy_path = validation_npy_path)
+
+
 if __name__ == '__main__':
-    main(train_gan_model = False, input_size = (16, 64, 128, 12), parent_path='Data', training_npy_path = 'Data/npy_dataset/training/' , validation_npy_path = 'Data/npy_dataset/validation/')
+    run_training(train_gan_model = False, input_size = input_size, parent_path= parent_path, training_npy_path =  training_npy_path , validation_npy_path = validation_npy_path)

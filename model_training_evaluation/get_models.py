@@ -13,6 +13,8 @@ from tensorflow.keras.layers import Conv3DTranspose
 from tensorflow.keras.layers import BatchNormalization
 
 def save_model(model, path='Data/Model/', model_name = 'model', weights_name = 'weights'):
+    if path[-1] != '/':
+        path = path + '/'
     if not os.path.exists(path):
         os.makedirs(path)
     model.save(path+model_name+'.h5',overwrite= True,include_optimizer = True)
@@ -316,7 +318,7 @@ def unet_dense(pretrained_weights = None,input_size = (16, 64, 128, 12)):
     conv8_2 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_8)
     conv8 = concatenate([input_8,conv8_2], axis = 4)
 
-    up9 = Conv3D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling3D(size = (3,3))(conv8))
+    up9 = Conv3D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling3D(size = (2,2,2))(conv8))
     merge9 = concatenate([conv1,up9], axis = 4)
     conv9_1 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge9)
     input_9 = concatenate([merge9,conv9_1], axis = 4)
