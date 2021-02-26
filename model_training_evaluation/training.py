@@ -14,6 +14,7 @@ from config import *
 # define training hyperparameters
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
+epochs = 1000
 
 def data_gen(splitted_npy_dataset_path, batch_size):
     c = 0
@@ -90,7 +91,7 @@ def run_training(train_gan_model = False, input_size = (16, 96, 128, 12), parent
         save_model(pred_model, path = model_save_path, model_name = 'unet_model', weights_name = 'weights')
         print('Non-Trained model saved to',  model_save_path)
         model = train_nn_model(pred_model, training_npy_path = training_npy_path, validation_npy_path = validation_npy_path, epochs = epochs, save_path = save_path_checkpoints)
-        save_model(model, path= model_save_path, model_name = 'final_model', weights_name = 'weights')
+        save_model(model, path= model_save_path, model_name = final_model, weights_name = 'weights')
         print('Trained model saved to', model_save_path)
         return model
 

@@ -10,8 +10,8 @@ _matrix_size = (16, 96, 128)
 
 # define the training parameter
 
-epochs = 10
-batch_size = 4
+epochs = 1000
+batch_size = 5
 test_size = 0.1
 input_size = (16, 96, 128, len(standard_name))
 
@@ -19,6 +19,10 @@ input_size = (16, 96, 128, len(standard_name))
 parent_path = 'Data'
 training_npy_path = 'Data/npy_dataset/training/'
 validation_npy_path = 'Data/npy_dataset/validation/'
+
+# define the model name
+final_model = 'final_model.h5'
+best_weight = 'best_weights.h5'
 
 
 

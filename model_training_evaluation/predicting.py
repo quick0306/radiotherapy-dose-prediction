@@ -37,8 +37,8 @@ def predict_evaluation(model, test_patient_path):
     Y =  batch_XY[:,:,:,:,s_n:s_n+1]
 
     # load model and predict
-    # Y_hat = model.predict(X)
-    Y_hat = np.maximum(np.subtract(Y, 3), 0)  # shift dose 3 Gy
+    Y_hat = model.predict(X)
+   # Y_hat = np.maximum(np.subtract(Y, 3), 0)  # shift dose 3 Gy
     dose_hat = np.squeeze(Y_hat)
     plan_hat.dose_volume = dose_hat
     dose_true = np.squeeze(Y) # get the dose matrix of [Z,X,Y]
@@ -91,7 +91,7 @@ def evaluate(plan, plan_hat, structure_list = standard_name):
         plt.plot(dose_bin,DVH_all[s]*100, color = (r,g,b), linewidth=1)
         plt.plot(dose_bin_hat,DVH_all_hat[s]*100, color = (r,g,b), linewidth=1, linestyle='dashed')
         structure_legend.append(s)
-        structure_legend.append(s)
+        structure_legend.append(s + '_hat')
     plt.ylabel('volume %')
     plt.legend(structure_legend,bbox_to_anchor=(1.1, 1.05),prop={'size': 6}) 
     plt.show()
@@ -125,9 +125,9 @@ def predict_batch(model_path, test_path):
     # load model once 
     if model_path[-1] != '/':
         model_path = model_path + '/'
-   # model =  load_model(model_path + 'model.h5')
-   # model.load_weights(model_path + 'best_weights.h5')
-    model = None
+    model =  load_model(model_path + 'final_model.h5' )
+    model.load_weights(model_path + 'best_weights.h5')
+   # model = None
 
     # start to go-over all patients in the test_path subfolders
 
