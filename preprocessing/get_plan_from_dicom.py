@@ -98,10 +98,11 @@ class Plan(object):
         dict_name = {}
         dict_origin = {}
         standard_name_lower = []
-        
+        print(PTV_VExP_Bone)
         for structure in list(self.structures.keys()):
-            
+            print(structure)
             if(structure in PTV_VExP_Bone):
+                print('find PTV_VExP')
                 self.structures['PTV_VExP'] = self.structures.pop(structure) 
 
         for s in standard_name:
@@ -355,12 +356,12 @@ def resample(plan, x_dim=128, y_dim=128, z_dim=64):
 
 
 def plan_unit_test():
-    path = './dicom_data/TMI_Kane/'
+    path = './dicom_data_test/TMI_Kane'
     plan = Plan()
     plan.get_plan_mask(path)
     plan.rename(standard_name = standard_name)
     print(plan.structures.keys())
-    plan.plot_3d_img(organ = 'Lungs')
+  #  plan.plot_3d_img(organ = 'Ring_1')
     return plan
 
 
