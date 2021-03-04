@@ -6,14 +6,15 @@ from os import listdir
 standard_name = [ 'BODY', 'PTV_Ribs', 'PTV_VExP', 'PTV_SpCord', 'PTV_LN', 'PTV_Spleen', 'PTV_Liver', 'Lungs', 'Heart', 'Esophagus', 'GI_Upper', 'Breasts']
 PTV_VExP_Bone = ['.PTV2_Bone', 'PTV2_Bone', 'PTV_Bone', '.PTV_Bone']
 section_size = (27, 37.5, 50)
-matrix_size = (32, 120, 160)
+matrix_size = (32, 96, 128)
 section = 'Lungs'
 # define the training parameter
 
-epochs = 1000
-batch_size = 5
+epochs = 10
+batch_size = 8
 test_size = 0.1
 input_size = (matrix_size[0], matrix_size[1], matrix_size[2], len(standard_name))
+model_name = 'AttUnetDense_v3'
 
 # define folder locations
 parent_path = 'Data'
@@ -23,7 +24,7 @@ plan_save_path = 'Data/plans'
 dataset_save_path = 'Data/npy_dataset'
 
 # define the model name
-final_model = 'final_model.h5'
+final_model = 'final_model'
 best_weight = 'best_weights.h5'
 
 

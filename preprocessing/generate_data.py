@@ -54,6 +54,9 @@ def get_plans(dicom_path, section = 'Lungs', section_size = (27, 37.5, 50), matr
             plan = Plan()
             plan.get_plan_mask(subfolder)
             plan.rename(standard_name)
+            # re-normalize the plan dose to mean Lungs = 8
+            plan.normalize('Lungs', 8)
+
             # get the z, x, y range of the body part and the focus secation (Lungs, liver...)
             zmin_body,zmax_body,xmin_body,xmax_body,ymin_body,ymax_body = plan.structure_range('BODY')
             zmin,zmax,xmin,xmax,ymin,ymax = plan.structure_range(section)
@@ -66,13 +69,21 @@ def get_plans(dicom_path, section = 'Lungs', section_size = (27, 37.5, 50), matr
             if(x_scope >= np.shape(plan.img_volume)[1]):
                 x_dim = [0,np.shape(plan.img_volume)[1]]
             else:
-                if(int(origin[1] - x_scope/2) <0 or  int(origin[1] + x_scope/2) > np.shape(plan.img_volume)[1]):
+                if(int(origin[1] - x_scope/2) <0):
+                    origin[1]  = int(x_scope/2)+1
+                if(int(origin[1] + x_scope/2) > np.shape(plan.img_volume)[1]):
+                    origin[1]  = np.shape(plan.img_volume)[1]- int(x_scope/2)-1
+                if(int(origin[1] + x_scope/2) > np.shape(plan.img_volume)[1] or int(origin[1] - x_scope/2) <0):
                     raise ValueError('the x dimentions is out of range')
                 x_dim = [int(origin[1] - x_scope/2), int(origin[1] + x_scope/2)]
 
             if(y_scope >= np.shape(plan.img_volume)[2]):
                 y_dim = [0,np.shape(plan.img_volume)[2]]
             else:
+                if (int(origin[2] - y_scope/2) <0):
+                    origin[2]  = int(y_scope/2)+1
+                if (int(origin[2] + y_scope/2) > np.shape(plan.img_volume)[2]):
+                    origin[2]  = np.shape(plan.img_volume)[2]- int(y_scope/2)-1
                 if(int(origin[2] - y_scope/2) <0 or  int(origin[2] + y_scope/2) > np.shape(plan.img_volume)[2]):
                     raise ValueError('the y dimentions is out of range')
                 y_dim = [int(origin[2] - y_scope/2), int(origin[2] + y_scope/2)]
@@ -161,6 +172,8 @@ def get_plans_unit_test():
     dicom_path = './dicom_data/'
     plan_save_path = './Data/plans'
     dataset_save_path = './Data/npy_dataset'
+    print('matrix size is', matrix_size)
+    print('section size is', section_size)
     scans, dose_imgs =  get_plans(dicom_path, section = section, section_size = section_size, matrix_size = matrix_size, plan_save_path = plan_save_path, dataset_save_path = dataset_save_path, save_npy = True, batch_size = 1)
     return
 

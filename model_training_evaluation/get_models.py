@@ -9,6 +9,7 @@ from tensorflow.keras.models import model_from_json, load_model
 from tensorflow.keras.regularizers import l2, l1
 from tensorflow.keras.layers import LeakyReLU
 from tensorflow.keras.layers import Input, Conv3D, Dense, UpSampling3D, Activation, MaxPooling3D, Dropout, concatenate, Flatten, Multiply, Subtract, Conv2D, UpSampling2D, MaxPooling2D, Conv2DTranspose
+from tensorflow.keras.layers import add, multiply
 from tensorflow.keras.layers import Conv3DTranspose
 from tensorflow.keras.layers import BatchNormalization
 
@@ -46,163 +47,10 @@ def dice_coefficient(y_true, y_pred):
 def dice_coefficient_loss(y_true, y_pred):
     return 1 - dice_coefficient(y_true, y_pred)
 
-# prediction model 1
 
-def unet(pretrained_weights = None,input_size = (16, 64, 128, 12)):
-    ''' unet structure with different dimension metrix 
-    '''
-    
-    inputs = Input(input_size)
-    conv1 = Conv3D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(inputs)
-    conv1 = Conv3D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv1)
-    pool1 = MaxPooling3D(pool_size=(2, 2, 2))(conv1)
-    conv2 = Conv3D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool1)
-    conv2 = Conv3D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv2)
-    pool2 = MaxPooling3D(pool_size=(2, 2, 2))(conv2)
-    conv3 = Conv3D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool2)
-    conv3 = Conv3D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv3)
-    pool3 = MaxPooling3D(pool_size=(2, 2, 2))(conv3)
-    conv4 = Conv3D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool3)
-    conv4 = Conv3D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv4)
-    drop4 = Dropout(0.5)(conv4)
-    pool4 = MaxPooling2D(pool_size=(2, 2, 2))(drop4)
+############################# model unet ###############################################################
 
-    conv5 = Conv3D(1024, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool4)
-    conv5 = Conv3D(1024, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv5)
-    drop5 = Dropout(0.5)(conv5)
-
-    up6 = Conv3D(512, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling3D(size = (2,2,2))(drop5))
-    merge6 = concatenate([drop4,up6], axis = 4)
-    conv6 = Conv3D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge6)
-    conv6 = Conv3D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv6)
-
-    up7 = Conv3D(256, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling3D(size = (2,2, 2))(conv6))
-    merge7 = concatenate([conv3,up7], axis = 4)
-    conv7 = Conv3D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge7)
-    conv7 = Conv3D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv7)
-
-    up8 = Conv3D(128, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling3D(size = (2,2,2))(conv7))
-    merge8 = concatenate([conv2,up8], axis = 4)
-    conv8 = Conv3D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge8)
-    conv8 = Conv3D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv8)
-
-    up9 = Conv3D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling3D(size = (2,2,2))(conv8))
-    merge9 = concatenate([conv1,up9], axis = 4)
-    conv9 = Conv3D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge9)
-    conv9 = Conv3D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
-    conv9 = Conv3D(2, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
-    conv10 = Conv3D(1, 1, activation = 'linear')(conv9)
-
-    print('output shape=',conv10.shape)
-    model = Model(inputs = inputs, outputs = conv10)
-
-    model.compile(optimizer = Adam(lr = 1e-4), loss = 'mean_squared_error', metrics=['mean_squared_error', 'acc'])
-    
-    #model.summary()
-    if(pretrained_weights):
-        model.load_weights(pretrained_weights)
-    print('Dose prediction Model Architecture:')
-    print(model.summary())
-    
-    return model
-
-
-# model of unet_v2
-
-
-def unet_v2(pretrained_weights = None,input_size = (128,256,10)):
-    
-    inputs = Input(input_size)
-    conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(inputs)
-  #  conv1 = BatchNormalization()(conv1)
-    conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv1)
-  #  conv1 = BatchNormalization()(conv1)
-    drop1 = Dropout(0.25)(conv1)     # drop for 1
-    pool1 = MaxPooling2D(pool_size=(2, 2))(drop1) # work on drop 
-   # pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
-    
-    conv2 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool1)
-  #  conv2 = BatchNormalization()(conv2)
-    conv2 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv2)
-  #  conv2 = BatchNormalization()(conv2)
-    drop2 = Dropout(0.25)(conv2)     # drop for 2
-    pool2 = MaxPooling2D(pool_size=(2, 2))(drop2) # work on drop 
-   # pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
-    
-    conv3 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool2)
-   # conv3 = BatchNormalization()(conv3)
-    conv3 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv3)
-   # conv3 = BatchNormalization()(conv3)
-    drop3 = Dropout(0.25)(conv3)     # drop for 3
-    pool3 = MaxPooling2D(pool_size=(2, 2))(drop3) # work on drop 
-   # pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
-    
-    conv4 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool3)
-   # conv4 = BatchNormalization()(conv4)
-    conv4 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv4)
-   # conv4 = BatchNormalization()(conv4)
-    drop4 = Dropout(0.25)(conv4)
-    pool4 = MaxPooling2D(pool_size=(2, 2))(drop4)
-
-    conv5 = Conv2D(1024, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool4)
-   # conv5 = BatchNormalization()(conv5)
-    conv5 = Conv2D(1024, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv5)
-   # conv5 = BatchNormalization()(conv5)
-    drop5 = Dropout(0.25)(conv5)
-
-    up6 = Conv2D(512, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(drop5))
-    merge6 = concatenate([drop4,up6], axis = 3)
-    conv6 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge6)
-   # conv6 = BatchNormalization()(conv6)
-    conv6 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv6)
-   # conv6 = BatchNormalization()(conv6)
-    drop6 = Dropout(0.25)(conv6)    # add drop 6
-
-    up7 = Conv2D(256, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(drop6))
-    merge7 = concatenate([conv3,up7], axis = 3)
-    conv7 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge7)
-   # conv7 = BatchNormalization()(conv7)
-    conv7 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv7)
-   # conv7 = BatchNormalization()(conv7)
-    drop7 = Dropout(0.25)(conv7)    # add drop 7
-
-    up8 = Conv2D(128, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(drop7))
-    merge8 = concatenate([conv2,up8], axis = 3)
-    conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge8)
-   # conv8 = BatchNormalization()(conv8)
-    conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv8)
-   # conv8 = BatchNormalization()(conv8)
-    drop8 = Dropout(0.25)(conv8)    # add drop 8
-
-    up9 = Conv2D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(drop8))
-    merge9 = concatenate([conv1,up9], axis = 3)
-    conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge9)
-   # conv9 = BatchNormalization()(conv9)
-    conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
-   # conv9 = BatchNormalization()(conv9)
-    drop9 = Dropout(0.25)(conv9)    # add drop 9
-    
-    conv9 = Conv2D(2, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(drop9)
-   # conv9 = BatchNormalization()(conv9)
-    
-    conv10 = Conv2D(1, 1, activation = 'linear')(conv9)
-    print('output shape=',conv10.shape)
-    model = Model(inputs = inputs, outputs = conv10)
-
-    model.compile(optimizer = Adam(lr = 1e-4), loss = 'mean_squared_error', metrics=['mean_squared_error', 'acc'])
-    
-    #model.summary()
-
-    if(pretrained_weights):
-        model.load_weights(pretrained_weights)
-    print('Dose prediction Model Architecture:')
-    print(model.summary())
-    
-    return model
-
-############################# model 3 ###############################################################
-
-def unet_v3(pretrained_weights = None,input_size = (128,256,13)):
+def unet(pretrained_weights = None,input_size = (128,256,13)):
     
     inputs = Input(input_size)
     conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(inputs)
@@ -342,8 +190,238 @@ def unet_dense(pretrained_weights = None,input_size = (16, 64, 128, 12)):
     
     return model
 
+## Attention block
+
+
+
+def attention_unet(pretrained_weights = None,input_size = (16, 64, 128, 12)):
+    ''' 
+        Attention Unet come from image segmentation
+    '''
+    def attention_block(x, g, inter_channel):
+        # theta_x(?,g_height,g_width,inter_channel)
+        theta_x = Conv3D(inter_channel, [1, 1, 1], strides=[1, 1, 1])(x)
+        # phi_g(?,g_height,g_width,inter_channel)
+        phi_g = Conv3D(inter_channel, [1, 1, 1], strides=[1, 1, 1])(g)
+        # f(?,g_height,g_width,inter_channel)
+        f = Activation('relu')(add([theta_x, phi_g]))
+        # psi_f(?,g_height,g_width,1)
+        psi_f = Conv3D(1, [1, 1, 1], strides=[1, 1, 1])(f)
+        rate = Activation('sigmoid')(psi_f)
+        # rate(?,x_height,x_width)
+        # # att_x(?,x_height,x_width,x_channel)
+        att_x = multiply([x, rate])
+        return att_x
+
+    inputs = Input(input_size)
+    conv1_1 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(inputs)
+    input_1 = concatenate([inputs,conv1_1], axis = 4)    
+    conv1_2 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_1)
+    conv1 = concatenate([input_1,conv1_2], axis = 4)
+    conv1 = BatchNormalization()(conv1)
+    
+    pool1 = MaxPooling3D(pool_size=(2, 2, 2))(conv1)
+    conv2_1 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool1)
+    input_2 = concatenate([pool1,conv2_1], axis = 4)    
+    conv2_2 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_2)
+    conv2 = concatenate([input_2,conv2_2], axis = 4)
+    conv2 = BatchNormalization()(conv2)
+    
+    pool2 = MaxPooling3D(pool_size=(2, 2, 2))(conv2)
+    conv3_1 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool2)
+    input_3 = concatenate([pool2,conv3_1], axis = 4) 
+    conv3_2 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_3)
+    conv3 = concatenate([input_3,conv3_2], axis = 4)
+    conv3 = BatchNormalization()(conv3)
+    
+    pool3 = MaxPooling3D(pool_size=(2, 2, 2))(conv3)
+    conv4_1 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool3)
+    input_4 = concatenate([pool3,conv4_1], axis = 4) 
+    conv4_2 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_4)
+    conv4 = concatenate([input_4,conv4_2], axis = 4)
+    drop4 = Dropout(0.5)(conv4)
+    drop4 = BatchNormalization()(drop4)
+    
+    
+    pool4 = MaxPooling3D(pool_size=(2, 2, 2))(drop4)
+    conv5_1 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool4)
+    input_5 = concatenate([pool4,conv5_1], axis = 4) 
+    conv5_2 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_5)
+    conv5 = concatenate([input_5,conv5_2], axis = 4)
+    drop5 = Dropout(0.5)(conv5)
+    drop5 = BatchNormalization()(drop5)
+    
+    up6 = Conv3D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling3D(size = (2,2,2))(drop5))
+    drop4 = attention_block(x = drop4, g = up6, inter_channel = drop5.get_shape().as_list()[4]//4) # gate attention
+    
+    merge6 = concatenate([drop4,up6], axis = 4)
+    conv6_1 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge6)
+    input_6 = concatenate([merge6,conv6_1], axis = 4)
+    conv6_2 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_6)
+    conv6 = concatenate([input_6,conv6_2], axis = 4)
+    conv6 = BatchNormalization()(conv6)
+
+    up7 = Conv3D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling3D(size = (2,2,2))(conv6))
+    conv3 = attention_block(x = conv3, g = up7, inter_channel = conv6.get_shape().as_list()[4]//4) # gate attention
+    merge7 = concatenate([conv3,up7], axis = 4)
+    conv7_1 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge7)
+    input_7 = concatenate([merge7,conv7_1], axis = 4)
+    conv7_2 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_7)
+    conv7 = concatenate([input_7,conv7_2], axis = 4)
+    conv7 = BatchNormalization()(conv7)
+    
+    up8 = Conv3D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling3D(size = (2,2,2))(conv7))
+    conv2 = attention_block(x = conv2, g = up8, inter_channel = conv7.get_shape().as_list()[4]//4) # gate attention
+    merge8 = concatenate([conv2,up8], axis = 4)
+    conv8_1 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge8)
+    input_8 = concatenate([merge8,conv8_1], axis = 4)
+    conv8_2 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_8)
+    conv8 = concatenate([input_8,conv8_2], axis = 4)
+    conv8 = BatchNormalization()(conv8)
+
+    up9 = Conv3D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling3D(size = (2,2,2))(conv8))
+    conv1 = attention_block(x = conv1, g = up9, inter_channel = conv8.get_shape().as_list()[4]//4) # gate attention
+    merge9 = concatenate([conv1,up9], axis = 4)
+    conv9_1 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge9)
+    input_9 = concatenate([merge9,conv9_1], axis = 4)
+    conv9_2 = Conv3D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_9)
+    conv9 = concatenate([input_9,conv9_2], axis = 4)
+  #  conv9 = BatchNormalization()(conv9)
+    
+    conv9 = Conv3D(2, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
+    conv10 = Conv3D(1, 1, activation = 'linear')(conv9)
+
+    print('output shape=',conv10.shape)
+    model = Model(inputs = inputs, outputs = conv10)
+
+    model.compile(optimizer = Adam(lr = 1e-4, beta_1=0.9, beta_2=0.999), loss = 'mean_squared_error', metrics=['mean_squared_error', 'acc'])
+    
+    #model.summary()
+
+    if(pretrained_weights):
+        model.load_weights(pretrained_weights)
+    print('Dose prediction Model Architecture:')
+    print(model.summary())
+    
+    return model
+
+## Attention UNET 2
+
+def attention_unet_v2(pretrained_weights = None,input_size = (16, 64, 128, 12)):
+    ''' 
+        Attention Unet come from image segmentation
+    '''
+    def attention_block(x, g, inter_channel):
+        # theta_x(?,g_height,g_width,inter_channel)
+        theta_x = Conv3D(inter_channel, [1, 1, 1], strides=[1, 1, 1])(x)
+        # phi_g(?,g_height,g_width,inter_channel)
+        phi_g = Conv3D(inter_channel, [1, 1, 1], strides=[1, 1, 1])(g)
+        # f(?,g_height,g_width,inter_channel)
+        f = Activation('relu')(add([theta_x, phi_g]))
+        # psi_f(?,g_height,g_width,1)
+        psi_f = Conv3D(1, [1, 1, 1], strides=[1, 1, 1])(f)
+        rate = Activation('sigmoid')(psi_f)
+        # rate(?,x_height,x_width)
+        # # att_x(?,x_height,x_width,x_channel)
+        att_x = multiply([x, rate])
+        return att_x
+
+    inputs = Input(input_size)
+    conv1_1 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(inputs)
+    input_1 = concatenate([inputs,conv1_1], axis = 4)    
+    conv1_2 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_1)
+    conv1 = concatenate([input_1,conv1_2], axis = 4)
+    conv1 = BatchNormalization()(conv1)
+    
+    pool1 = MaxPooling3D(pool_size=(2, 2, 2))(conv1)
+    conv2_1 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool1)
+    input_2 = concatenate([pool1,conv2_1], axis = 4)    
+    conv2_2 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_2)
+    conv2 = concatenate([input_2,conv2_2], axis = 4)
+    conv2 = BatchNormalization()(conv2)
+    
+    pool2 = MaxPooling3D(pool_size=(2, 2, 2))(conv2)
+    conv3_1 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool2)
+    input_3 = concatenate([pool2,conv3_1], axis = 4) 
+    conv3_2 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_3)
+    conv3 = concatenate([input_3,conv3_2], axis = 4)
+    conv3 = BatchNormalization()(conv3)
+    
+    pool3 = MaxPooling3D(pool_size=(2, 2, 2))(conv3)
+    conv4_1 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool3)
+    input_4 = concatenate([pool3,conv4_1], axis = 4) 
+    conv4_2 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_4)
+    conv4 = concatenate([input_4,conv4_2], axis = 4)
+    drop4 = Dropout(0.5)(conv4)
+    drop4 = BatchNormalization()(drop4)
+    
+    
+    pool4 = MaxPooling3D(pool_size=(2, 2, 2))(drop4)
+    conv5_1 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool4)
+    input_5 = concatenate([pool4,conv5_1], axis = 4) 
+    conv5_2 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_5)
+    conv5 = concatenate([input_5,conv5_2], axis = 4)
+    drop5 = Dropout(0.5)(conv5)
+    drop5 = BatchNormalization()(drop5)
+    
+    up6 = Conv3D(32, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling3D(size = (2,2,2))(drop5))
+    drop4 = attention_block(x = drop4, g = up6, inter_channel = drop5.get_shape().as_list()[4]//4) # gate attention
+    
+    merge6 = concatenate([drop4,up6], axis = 4)
+    conv6_1 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge6)
+    input_6 = concatenate([merge6,conv6_1], axis = 4)
+    conv6_2 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_6)
+    conv6 = concatenate([input_6,conv6_2], axis = 4)
+    conv6 = BatchNormalization()(conv6)
+
+    up7 = Conv3D(32, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling3D(size = (2,2,2))(conv6))
+    conv3 = attention_block(x = conv3, g = up7, inter_channel = conv6.get_shape().as_list()[4]//4) # gate attention
+    merge7 = concatenate([conv3,up7], axis = 4)
+    conv7_1 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge7)
+    input_7 = concatenate([merge7,conv7_1], axis = 4)
+    conv7_2 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_7)
+    conv7 = concatenate([input_7,conv7_2], axis = 4)
+    conv7 = BatchNormalization()(conv7)
+    
+    up8 = Conv3D(32, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling3D(size = (2,2,2))(conv7))
+    conv2 = attention_block(x = conv2, g = up8, inter_channel = conv7.get_shape().as_list()[4]//4) # gate attention
+    merge8 = concatenate([conv2,up8], axis = 4)
+    conv8_1 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge8)
+    input_8 = concatenate([merge8,conv8_1], axis = 4)
+    conv8_2 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_8)
+    conv8 = concatenate([input_8,conv8_2], axis = 4)
+    conv8 = BatchNormalization()(conv8)
+
+    up9 = Conv3D(32, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling3D(size = (2,2,2))(conv8))
+    conv1 = attention_block(x = conv1, g = up9, inter_channel = conv8.get_shape().as_list()[4]//4) # gate attention
+    merge9 = concatenate([conv1,up9], axis = 4)
+    conv9_1 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge9)
+    input_9 = concatenate([merge9,conv9_1], axis = 4)
+    conv9_2 = Conv3D(8, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input_9)
+    conv9 = concatenate([input_9,conv9_2], axis = 4)
+    conv9 = BatchNormalization()(conv9)
+    
+    conv9 = Conv3D(2, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
+    conv10 = Conv3D(1, 1, activation = 'linear')(conv9)
+
+    print('output shape=',conv10.shape)
+    model = Model(inputs = inputs, outputs = conv10)
+
+    model.compile(optimizer = Adam(lr = 1e-4, beta_1=0.9, beta_2=0.999), loss = 'mean_squared_error', metrics=['mean_squared_error', 'acc'])
+    
+    #model.summary()
+
+    if(pretrained_weights):
+        model.load_weights(pretrained_weights)
+    print('Dose prediction Model Architecture:')
+    print(model.summary())
+    
+    return model
+
 
 #################################################################################################################
+
+
 
 def get_GAN(input_shape, Generator, Discriminator):
     

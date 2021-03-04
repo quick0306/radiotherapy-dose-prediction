@@ -6,7 +6,7 @@ import tensorflow as tf
 import random
 #from get_dataset import read_npy_dataset, split_npy_dataset
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
-from model_training_evaluation.get_models import unet_dense, get_Discriminator, get_GAN, get_Generator, save_model
+from model_training_evaluation.get_models import unet_dense, get_Discriminator, get_GAN, get_Generator, save_model, attention_unet, attention_unet_v2
 from util import mse, dice_coeff 
 from config import *
 
@@ -14,14 +14,20 @@ from config import *
 # define training hyperparameters
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
-epochs = 1000
+epochs = 2500
+batch_size = 4
+
+
 
 def data_gen(splitted_npy_dataset_path, batch_size):
     c = 0
     batch_dirs = listdir(splitted_npy_dataset_path)
     n = os.listdir(splitted_npy_dataset_path) #List of training images
     random.shuffle(n)
+   # print('the folder is ', splitted_npy_dataset_path)
+   # print('the folder has ', n)
     while True:
+        print('c is ', c)
         X_batch = np.zeros((batch_size, input_size[0], input_size[1], input_size[2], input_size[3])).astype('float')
         Y_batch = np.zeros((batch_size, input_size[0], input_size[1], input_size[2], 1)).astype('float')
         for i in range(c,c+batch_size):
@@ -52,8 +58,8 @@ def train_nn_model(model, training_npy_path, validation_npy_path, epochs, save_p
     checkpoints = []
     checkpoints.append(EarlyStopping(monitor='val_loss', patience=500))
     checkpoints.append(ModelCheckpoint(best_weights_path, monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=False))
-    model.fit_generator(data_gen(training_npy_path, batch_size), steps_per_epoch=int(len_batch_dirs/batch_size)+1, epochs=epochs, validation_data=data_gen(validation_npy_path, batch_size = batch_size), 
-                          validation_steps=5, callbacks=checkpoints)
+    model.fit_generator(data_gen(training_npy_path, batch_size), steps_per_epoch=int(len_batch_dirs/batch_size)+1, epochs=epochs, validation_data=data_gen(validation_npy_path, batch_size = 4), 
+                          validation_steps=1, callbacks=checkpoints)
     #scores = model.evaluate(X_test, Y_test)        
     #print(Y_predict.shape)
     #dice_score = dice_coefficient(model.predict(X_test), Y_test)
@@ -85,10 +91,11 @@ def run_training(train_gan_model = False, input_size = (16, 96, 128, 12), parent
         return Generator
         
     else:
+        print(model_name)
         save_path_checkpoints = parent_path + '/Checkpoints_UnetDense/'
-        model_save_path = parent_path + '/Model_UnetDense'
-        pred_model = unet_dense(input_size = input_size)
-        save_model(pred_model, path = model_save_path, model_name = 'unet_model', weights_name = 'weights')
+        model_save_path = parent_path + '/Model_' + model_name
+        pred_model = attention_unet(input_size = input_size)
+        save_model(pred_model, path = model_save_path, model_name = model_name, weights_name = 'weights')
         print('Non-Trained model saved to',  model_save_path)
         model = train_nn_model(pred_model, training_npy_path = training_npy_path, validation_npy_path = validation_npy_path, epochs = epochs, save_path = save_path_checkpoints)
         save_model(model, path= model_save_path, model_name = final_model, weights_name = 'weights')
@@ -97,6 +104,8 @@ def run_training(train_gan_model = False, input_size = (16, 96, 128, 12), parent
 
 
 def training_unit_test():
+    print(input_size)
+    print(batch_size)
     run_training(train_gan_model = False, input_size = input_size, parent_path= parent_path, training_npy_path =  training_npy_path , validation_npy_path = validation_npy_path)
 
 

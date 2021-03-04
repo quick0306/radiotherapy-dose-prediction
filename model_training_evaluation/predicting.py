@@ -106,6 +106,7 @@ def evaluate(plan, plan_hat, structure_list = standard_name):
         df = df.append({'Organ' : s, 'Dmean' : (Dmean_hat[s]-Dmean[s])/Dmean[s], 'Dmax' : (Dmax_hat[s]-Dmax[s])/Dmax[s], \
                         'D95':(D95_hat[s]-D95[s])/D95[s], 'D98' : (D98_hat[s]-D98[s])/D98[s], 'D5' : (D5_hat[s]-D5[s])/D5[s], \
                         'D2' : (D2_hat[s]-D2[s])/D2[s]}, ignore_index = True) 
+    df = df.set_index('Organ')
     display(df)
     return df
 
@@ -127,10 +128,8 @@ def predict_batch(model_path, test_path):
         model_path = model_path + '/'
     model =  load_model(model_path + 'final_model.h5' )
     model.load_weights(model_path + 'best_weights.h5')
-   # model = None
 
     # start to go-over all patients in the test_path subfolders
-
     metrics_all = {}
     for folder in data_dirs:
         if os.path.isdir(data_folder+folder):
@@ -138,21 +137,56 @@ def predict_batch(model_path, test_path):
             test_patient_path = data_folder+folder
             metrics = predict_evaluation(model, test_patient_path)
             metrics_all[folder] = metrics
-    
-    return metrics_all
-            
 
+    return metrics_all
+
+def metrics_summary(metrics_all):
+    pts = list(metrics_all.keys())
+    df = metrics_all[pts[0]]
+  #  organs = list(df.index.values)
+    organs = standard_name
+    column_names = ["Dmean", "Dmax", "D95", "D98", "D5", "D2"] 
+    dict_sum = {}
+    for organ in organs:
+        dict_sum[organ] = {}
+        for c in column_names:
+            dict_sum[organ][c] = []
+    
+    for pt in pts:
+        df = metrics_all[pt]
+        for organ in organs:
+            if organ not in list(df.index.values):
+                continue
+            for c in column_names:
+                dict_sum[organ][c].append(df.loc[organ,c])
+
+    df_mean = metrics_all[pts[0]]
+    df_std = metrics_all[pts[0]]
+    
+    for organ in organs:
+        for c in column_names:
+            df_mean.loc[organ,c] = np.mean(np.asarray(dict_sum[organ][c]))*100
+            df_std.loc[organ,c] = np.std(np.asarray(dict_sum[organ][c]))*100
+    display(df_mean)
+    display(df_std)
+    return df_mean, df_std
+        
+            
 ## test functoin run in jupyter
 def predict_unit_test():
     ''' test function run in jupyter
     '''
 
     test_path = 'Data/npy_dataset/test/'
-    model_path = 'Data/Model_UnetDense/'
-    test_patient_path = 'Data/npy_dataset/test/patient_2'
-    model = None
-   # predict_evaluation(model = None, test_patient_path = test_patient_path)
-    predict_batch(model_path, test_path)
+    model_path = 'Data/Model_AttUnetDense_v2/'
+    if model_path[-1] != '/':
+        model_path = model_path + '/'
+  #  model =  load_model(model_path + 'final_model.h5' )
+  #  model.load_weights(model_path + 'best_weights.h5')
+  #  predict_evaluation(model = None, test_patient_path = test_patient_path)
+    metrics_all = predict_batch(model_path, test_path)
+    df_mean, df_std  = metrics_summary(metrics_all)
+    return df_mean, df_std
 
 
     

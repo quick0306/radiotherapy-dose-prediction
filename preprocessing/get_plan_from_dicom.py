@@ -99,11 +99,20 @@ class Plan(object):
         dict_origin = {}
         standard_name_lower = []
         print(PTV_VExP_Bone)
+        is_GI_Upper = False
         for structure in list(self.structures.keys()):
+            if structure == 'GI_Upper': is_GI_Upper = True
             print(structure)
             if(structure in PTV_VExP_Bone):
                 print('find PTV_VExP')
-                self.structures['PTV_VExP'] = self.structures.pop(structure) 
+                self.structures['PTV_VExP'] = self.structures.pop(structure)
+            if(structure == 'Lungs_Total'):
+                print('Lungs')
+                self.structures['Lungs'] = self.structures.pop(structure)
+
+        if not is_GI_Upper:
+            self.structures['GI_Upper'] = self.structures.pop('Stomach')
+
 
         for s in standard_name:
             standard_name_lower.append(s.lower())
@@ -238,6 +247,15 @@ class Plan(object):
             self.structures[s]['mask'] = self.structures[s]['mask'][z_dim[0]:z_dim[1], x_dim[0]:x_dim[1], y_dim[0]:y_dim[1]]
             self.structures[s]['contour'] = self.structures[s]['contour'][z_dim[0]:z_dim[1], x_dim[0]:x_dim[1], y_dim[0]:y_dim[1]]
         return
+    
+
+    def normalize(self, structure, normal_mean):
+        structure_list = [structure]
+        dose_bin, DVH_all, Dmean, Dmax, D95, D5, D98, D2 = self.plot_DVH(structure_list)
+        scale = normal_mean*1.0/Dmean[structure]
+        self.dose_volume = self.dose_volume * scale
+        return
+
 
 ### Below are the test functions for used in Plan class
 
@@ -356,7 +374,7 @@ def resample(plan, x_dim=128, y_dim=128, z_dim=64):
 
 
 def plan_unit_test():
-    path = './dicom_data_test/TMI_Kane'
+    path = './dicom_data/TMI_REAM'
     plan = Plan()
     plan.get_plan_mask(path)
     plan.rename(standard_name = standard_name)
