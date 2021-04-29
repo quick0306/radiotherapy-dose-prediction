@@ -67,7 +67,7 @@ We have implemented 3 models
 ├── model_trainig_evaluation             - this folder contains trainig models and evaluation program.
 │   └── get_models.py              - includes all neuro network models
 │
-├── test.ipynb            - this script contains the whole trainig and tesing process
+├── main.ipynb            - this script contains the trainig and tesing process
 ```
 
 
