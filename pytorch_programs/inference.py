@@ -42,11 +42,14 @@ def predict_evaluation(model, test_patient_path):
     Y =  batch_XY[:,:,:,:,s_n:s_n+1]
     
     # load model and predict
-    X = np.squeeze(X, axis=0)
-    X = torch.from_numpy(X).to(device)  # to torch, send to device
+    X = X.astype(np.float32) 
+    X_GPU = torch.from_numpy(X).to(device)  # to torch, send to device
+    X_GPU = X_GPU.permute(0, 4, 1,2, 3)
     with torch.no_grad():
-        Y_hat = model(X)
-   # Y_hat = np.maximum(np.subtract(Y, 3), 0)  # shift dose 3 Gy
+        Y_hat = model(X_GPU)
+    # Y_hat = np.maximum(np.subtract(Y, 3), 0)  # shift dose 3 Gy
+    Y_hat = Y_hat.permute(0,2,3,4,1)
+    Y_hat = Y_hat.cpu().numpy()
     dose_hat = np.squeeze(Y_hat)
     plan_hat.dose_volume = dose_hat
     dose_true = np.squeeze(Y) # get the dose matrix of [Z,X,Y]
@@ -59,7 +62,7 @@ def predict_evaluation(model, test_patient_path):
         plan_hat.structures[s] = defaultdict()
         plan_hat.structures[s]['mask'] = mask    
     
-    
+    print('X size, Y size, Y_hat size', X.shape, Y.shape, Y_hat.shape)
     batch_XY_hat = np.concatenate((X, Y_hat), axis = -1)
     np.save(test_patient_path+'hat_'+ test_npy[0], batch_XY_hat)
     metrics = _evaluate(plan, plan_hat)
@@ -136,6 +139,7 @@ def predict_batch(model_path, test_path):
         test_path = test_path + '/'
     data_folder = test_path
     data_dirs = listdir(data_folder)
+    print('data_dirs is', data_dirs)
     
     # load model once 
     model = UNet(n_channels=12, n_classes=1).to(device)
@@ -189,7 +193,8 @@ def predict_unit_test():
     ''' test function run in jupyter
     '''
 
-    test_path = 'Data/npy_dataset/training/'
+    test_path = 'Data/npy_dataset/test/'
+    print(test_path)
     model_path = str(Path.cwd())+'/pytorch_programs'+'/test_model.pt'
     metrics_all = predict_batch(model_path, test_path)
     df_mean, df_std  = metrics_summary(metrics_all)
