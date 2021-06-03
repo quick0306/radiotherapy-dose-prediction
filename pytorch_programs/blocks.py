@@ -3,6 +3,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from .weight_init import *
 
 
 class DoubleConv(nn.Module):
@@ -17,6 +18,10 @@ class DoubleConv(nn.Module):
         self.BatchNorm3d_1 = nn.BatchNorm3d(mid_channels)
         self.BatchNorm3d_2 = nn.BatchNorm3d(out_channels)
         self.act1 = nn.ReLU(inplace=True)
+
+        # initial the weight
+        for m in self.children():
+            init_weights(m, init_type='kaiming')
 
     def forward(self, x):
         y = self.conv1(x)
@@ -150,8 +155,8 @@ class _GridAttentionBlockND(nn.Module):
         self.psi = conv_nd(in_channels=self.inter_channels, out_channels=1, kernel_size=1, stride=1, padding=0, bias=True)
 
         # Initialise weights
-     #   for m in self.children():
-     #       init_weights(m, init_type='kaiming')
+        for m in self.children():
+            init_weights(m, init_type='kaiming')
 
         # Define the operation
         if mode == 'concatenation':
@@ -275,9 +280,9 @@ class MultiAttentionBlock(nn.Module):
                                            )
 
         # initialise the blocks
-#        for m in self.children():
-#            if m.__class__.__name__.find('GridAttentionBlock3D') != -1: continue
-#            init_weights(m, init_type='kaiming')
+        for m in self.children():
+            if m.__class__.__name__.find('GridAttentionBlock3D') != -1: continue
+            init_weights(m, init_type='kaiming')
 
     def forward(self, input, gating_signal):
         gate_1, attention_1 = self.gate_block_1(input, gating_signal)

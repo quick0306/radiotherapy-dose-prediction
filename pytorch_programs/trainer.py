@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from pathlib import Path
 
 
 class Trainer:
@@ -30,6 +31,7 @@ class Trainer:
         self.training_loss = []
         self.validation_loss = []
         self.learning_rate = []
+        self.min_valid_loss = float('inf')
 
     def run_trainer(self):
 
@@ -82,6 +84,7 @@ class Trainer:
 
             batch_iter.set_description(f'Training: (loss {loss_value:.4f})')  # update progressbar
 
+        
         self.training_loss.append(np.mean(train_losses))
         self.learning_rate.append(self.optimizer.param_groups[0]['lr'])
 
@@ -107,9 +110,14 @@ class Trainer:
                 loss = self.criterion(out, target)
                 loss_value = loss.item()
                 valid_losses.append(loss_value)
-
                 batch_iter.set_description(f'Validation: (loss {loss_value:.4f})')
-
+        print(f'Validation Loss: {np.mean(valid_losses)}')
+        if self.min_valid_loss > np.mean(valid_losses):
+            print(f'Validation Loss Decreased({self.min_valid_loss:.6f}--->{np.mean(valid_losses):.6f}) \t Saving The Model')
+            self.min_valid_loss = np.mean(valid_losses)
+            # Saving State Dict
+            model_name =  'best_Unet_model.pt'
+            torch.save(self.model.state_dict(), str(Path.cwd())+'/pytorch_programs'+'/'+model_name)
         self.validation_loss.append(np.mean(valid_losses))
 
         batch_iter.close()

@@ -13,6 +13,7 @@ from util import *
 from pathlib import Path
 import torch
 from .unet_model import UNet
+from .AttUnet_model import Att_UNet
 # device
 if torch.cuda.is_available():
     device = torch.device('cuda')
@@ -142,7 +143,7 @@ def predict_batch(model_path, test_path):
     print('data_dirs is', data_dirs)
     
     # load model once 
-    model = UNet(n_channels=12, n_classes=1).to(device)
+    model = Att_UNet(n_channels=12, n_classes=1).to(device)
     model_weights = torch.load(model_path)
     model.load_state_dict(model_weights)
     # start to go-over all patients in the test_path subfolders
@@ -195,7 +196,7 @@ def predict_unit_test():
 
     test_path = 'Data/npy_dataset/test/'
     print(test_path)
-    model_path = str(Path.cwd())+'/pytorch_programs'+'/test_model.pt'
+    model_path = str(Path.cwd())+'/pytorch_programs'+'/best_AttUnet_model.pt'
     metrics_all = predict_batch(model_path, test_path)
     df_mean, df_std  = metrics_summary(metrics_all)
     return df_mean, df_std
