@@ -1,0 +1,11 @@
+pytorch == 1.8.1
+torchvision == 0.9.1
+tqdm
+numpy
+scipy
+pydicom
+dicom-contour
+fuzzywuzzy
+pillow
+h5py
+
